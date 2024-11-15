@@ -1,0 +1,63 @@
+import { Server } from "socket.io";
+
+let connections = {} // Tracks all active connections for each room
+
+export const connectToSocket = (server) => {
+    const io = new Server(server , {
+        cors : {
+            origin: "*",
+            methods: ["GET", "POST"],
+            allowedHeaders: ["*"], 
+            credentials: true
+        }
+    })
+
+    io.on("connection", (socket) => {
+        console.log("Something Connected");
+
+        socket.on("join-call", (table) => {
+            if(connections[table] === undefined) {
+                connections[table] = [];
+            }
+            connections[table].push(socket.id);
+
+            for(let a = 0; connections[table].length; a++) {
+                io.to(connections[table][a].emit("user-joined", socket.id, connections[table]));
+            }
+        });
+
+        socket.on("signal", (toId, message) => {
+            io.to(toId).emit("signal", socket.id, message);
+        });
+
+        socket.on("character-move", () => {});
+
+        socket.on("disconnect", () => {
+            var key;
+
+            for(const [k, v] of JSON.parse(JSON.stringify(Object.entries(connections)))) {
+                for(let a = 0; a < v.length; a++) {
+                    if(v[a] === socket.id) {
+                        key = k;
+
+                        // Notify all users in the room that this user has left
+                        for(let a = 0; a < connections[key].length; a++) {
+                            io.to(connections[key][a]).emit('user-left', socket.id);
+                        }
+
+                        // Remove the user's socket ID from the room
+                        let index = connections[key].indexOf(socket.id);
+                        connections[key].splice(index, 1);
+
+                        // Delete the room if no users remain
+                        if (connections[key].length === 0) {
+                            delete connections[key];
+                        }
+                    }
+                }
+            }
+        });
+    })
+
+    return io;
+}
