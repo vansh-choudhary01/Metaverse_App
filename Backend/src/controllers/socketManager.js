@@ -12,8 +12,12 @@ export const connectToSocket = (server) => {
         }
     })
 
+    let players = {};
     io.on("connection", (socket) => {
+        players[socket.id] = {name : socket.handshake.query.name, socketId : socket.id};
+        // let name = socket.handshake.query.name;
         console.log("Something Connected");
+        io.emit("user-connected", players);
 
         socket.on("join-call", (table) => {
             if(connections[table] === undefined) {
@@ -30,32 +34,37 @@ export const connectToSocket = (server) => {
             io.to(toId).emit("signal", socket.id, message);
         });
 
-        socket.on("character-move", () => {});
+        socket.on("player-move", (data) => {
+            io.emit("player-move", data);
+        });
 
         socket.on("disconnect", () => {
-            var key;
+            delete players[socket.id];
+            console.log(`User disconnected: ${socket.id}`);
+            io.emit("user-disconnected", socket.id);
+            // var key;
 
-            for(const [k, v] of JSON.parse(JSON.stringify(Object.entries(connections)))) {
-                for(let a = 0; a < v.length; a++) {
-                    if(v[a] === socket.id) {
-                        key = k;
+            // for(const [k, v] of JSON.parse(JSON.stringify(Object.entries(connections)))) {
+            //     for(let a = 0; a < v.length; a++) {
+            //         if(v[a] === socket.id) {
+            //             key = k;
 
-                        // Notify all users in the room that this user has left
-                        for(let a = 0; a < connections[key].length; a++) {
-                            io.to(connections[key][a]).emit('user-left', socket.id);
-                        }
+            //             // Notify all users in the room that this user has left
+            //             for(let a = 0; a < connections[key].length; a++) {
+            //                 io.to(connections[key][a]).emit('user-left', socket.id);
+            //             }
 
-                        // Remove the user's socket ID from the room
-                        let index = connections[key].indexOf(socket.id);
-                        connections[key].splice(index, 1);
+            //             // Remove the user's socket ID from the room
+            //             let index = connections[key].indexOf(socket.id);
+            //             connections[key].splice(index, 1);
 
-                        // Delete the room if no users remain
-                        if (connections[key].length === 0) {
-                            delete connections[key];
-                        }
-                    }
-                }
-            }
+            //             // Delete the room if no users remain
+            //             if (connections[key].length === 0) {
+            //                 delete connections[key];
+            //             }
+            //         }
+            //     }
+            // }
         });
     })
 

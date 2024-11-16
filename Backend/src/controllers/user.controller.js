@@ -17,7 +17,7 @@ const login = async (req, res) => {
             return res.status(httpStatus.NOT_FOUND).json({ message: "User not found" });
         }
 
-        let isPassCorrect = bcrypt.compare(password, user.password);
+        let isPassCorrect = await bcrypt.compare(password, user.password);
 
         if(isPassCorrect) {
             let token = crypto.randomBytes(20).toString("hex");
@@ -25,7 +25,7 @@ const login = async (req, res) => {
             user.token = token;
             user.save();
 
-            return res.status(httpStatus.OK).json({token : token});
+            return res.status(httpStatus.OK).json({token : token, name : user.name});
         } else {
             return res.status(httpStatus.UNAUTHORIZED).json({message : "Invalid username or password"});
         }
@@ -36,7 +36,7 @@ const login = async (req, res) => {
 }
 
 const register = async (req, res) => {
-    let {username, name, password} = req.body();
+    let {username, name, password} = req.body;
 
     try {
         let existingUser = await User.findOne({username});
