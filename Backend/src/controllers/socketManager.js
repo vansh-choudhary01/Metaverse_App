@@ -15,7 +15,6 @@ export const connectToSocket = (server) => {
     let players = {};
     io.on("connection", (socket) => {
         players[socket.id] = {name : socket.handshake.query.name, socketId : socket.id};
-        // let name = socket.handshake.query.name;
         console.log("Something Connected");
         io.emit("user-connected", players);
 
@@ -25,8 +24,13 @@ export const connectToSocket = (server) => {
             }
             connections[table].push(socket.id);
 
-            for(let a = 0; connections[table].length; a++) {
-                io.to(connections[table][a].emit("user-joined", socket.id, connections[table]));
+            for(let a = 0; a < connections[table].length; ++a) {
+                if(connections[table][a] != socket.id) {
+                    io.to(socket.id).emit("user-joined", socket.id);
+                    io.to(connections[table][a]).emit("user-joined", socket.id);
+                    // io.to(connections[table][a]).emit("user-joined", connections[table][a]);
+                    // io.to(socket.id).emit("user-joined", connections[table][a]);
+                }
             }
         });
 

@@ -13,9 +13,63 @@ const Metaverse = () => {
 	const socketRef = useRef(null);
 	const socketIdRef = useRef(null);
 	const gameRef = useRef(null); // Reference for Phaser game instance
+	const localVideoref = useRef(null);
+	const peerConnection = useRef(null);
+	const remoteVideoref = useRef(null);
+	const config = {
+		iceServers: [{ urls: 'stun:stun.l.google.com:19302 ' }]
+	};
+
+	async function getPermissions() {
+		try {
+			const userMediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+			if (userMediaStream) {
+				window.localStream = userMediaStream;
+				if (localVideoref.current) {
+					localVideoref.current.srcObject = userMediaStream;
+				}
+			}
+		} catch (e) {
+			console.error("Error accessing user media:", e);
+		}
+	}
+
+	async function gotMessageFromServer(fromId, message) {
+		const signal = JSON.parse(message);
+
+		if (fromId !== socketIdRef.current) {
+			// createPeerConnection();
+			if (signal.sdp) {
+				try {
+					peerConnection.current.setRemoteDescription(new RTCSessionDescription(signal.sdp)).then(async () => {
+						if (signal.sdp.type === 'offer') {
+							console.log('offer receved from : ', fromId);
+							const answer = await peerConnection.current.createAnswer();
+							await peerConnection.current.setLocalDescription(answer);
+							socketRef.current.emit('signal', fromId, JSON.stringify({ 'sdp': peerConnection.current.localDescription }));
+						}
+					})
+				} catch (e) {
+					console.error("Error handling SDP:", e);
+				}
+			}
+
+			if (signal.ice) {
+				try {
+					await peerConnection.current.addIceCandidate(new RTCIceCandidate(signal.ice));
+				} catch (e) {
+					console.error("Error adding ICE candidate:", e);
+				}
+			}
+		}
+	}
 
 	const connectToSocket = (scene) => {
-		socketRef.current = io.connect(server_url, { secure: false, query: { name: localStorage.getItem("name") } });
+		try {
+			socketRef.current = io.connect(server_url, { secure: false, query: { name: localStorage.getItem("name") } });
+		} catch (e) {
+			console.log(e);
+		}
 
 		socketRef.current.on('connect', () => {
 			socketIdRef.current = socketRef.current.id;
@@ -24,19 +78,67 @@ const Metaverse = () => {
 			// Listen for new player connections
 			socketRef.current.on('user-connected', (AllSockets) => {
 				console.log("All connected sockets : ", AllSockets);
-				for (const socketId in AllSockets) {
-					let user = AllSockets[socketId];
-					if (user.socketId != socketIdRef.current && !phaserPlayers[user.socketId]) {
-						createNewPlayer(scene, user);
+				try {
+					for (const socketId in AllSockets) {
+						let user = AllSockets[socketId];
+						if (user.socketId !== socketIdRef.current && !phaserPlayers[user.socketId]) {
+							createNewPlayer(scene, user);
+						}
 					}
-				}
+				} catch (e) { console.log(e); };
 			});
-
-			// Listen for player disconnections
-			socketRef.current.on('user-disconnected', userDisconnected);
 
 			// Listen for player movement updates
 			socketRef.current.on('player-move', playerMove);
+
+			socketRef.current.on('signal', gotMessageFromServer)
+
+			socketRef.current.on('user-joined', async (id) => {
+				peerConnection.current = new RTCPeerConnection(config);
+
+				peerConnection.current.onicecandidate = function (event) {
+					if (event.candidate != null) {
+						socketRef.current.emit('signal', id, JSON.stringify({ "ice": event.candidate }));
+					}
+				}
+
+				peerConnection.current.ontrack = (event) => {
+					if (remoteVideoref.current) {
+						remoteVideoref.current.srcObject = event.streams[0];
+					}
+				}
+
+				// peerConnection.current.addEventListener('signalingstatechange', () => {
+				// 	console.log('Signaling state changed to:', peerConnection.current.signalingState);
+				// });				
+
+				try {
+					if (window.localStream) {
+						window.localStream.getTracks().forEach((track) => {
+							peerConnection.current.addTrack(track, window.localStream);
+						});
+					}
+				} catch (e) { console.error("Failed to add local stream to peer connection:", e); }
+
+				if (id !== socketIdRef) {
+					try {
+						if (peerConnection.current.signalingState === 'stable') {
+							const description = await peerConnection.current.createOffer();
+							await peerConnection.current.setLocalDescription(description);
+							socketRef.current.emit('signal', id, JSON.stringify({ 'sdp': peerConnection.current.localDescription }));
+							console.log("Offer created and set successfully.");
+						} else {
+							console.warn("Skipping offer creation. Current signaling state:", peerConnection.current.signalingState);
+						}
+					} catch (error) {
+						console.error("Error creating and setting offer:", error);
+					}					
+				}
+			})
+
+
+			// Listen for player disconnections
+			socketRef.current.on('user-disconnected', userDisconnected);
 		});
 	};
 
@@ -169,35 +271,39 @@ const Metaverse = () => {
 
 		// Update function for handling game logic per frame
 		function update() {
-			// Check which arrow key is pressed and move player accordingly
-			if (cursors.left.isDown) {
-				player.setVelocityX(-160);
-				player.anims.play('left', true);
-			} else if (cursors.right.isDown) {
-				player.setVelocityX(160);
-				player.anims.play('right', true);
-			} else if (cursors.up.isDown) {
-				player.setVelocityY(-160);
-				player.anims.play('up', true);
-			} else if (cursors.down.isDown) {
-				player.setVelocityY(160);
-				player.anims.play('down', true);
-			} else {
-				// Stop player movement if no key is pressed
-				player.setVelocity(0);
-				player.anims.stop();
+			try {
+				// Check which arrow key is pressed and move player accordingly
+				if (cursors.left.isDown) {
+					player.setVelocityX(-160);
+					player.anims.play('left', true);
+				} else if (cursors.right.isDown) {
+					player.setVelocityX(160);
+					player.anims.play('right', true);
+				} else if (cursors.up.isDown) {
+					player.setVelocityY(-160);
+					player.anims.play('up', true);
+				} else if (cursors.down.isDown) {
+					player.setVelocityY(160);
+					player.anims.play('down', true);
+				} else {
+					// Stop player movement if no key is pressed
+					player.setVelocity(0);
+					player.anims.stop();
+				}
+
+				// Update "You" text position
+				usernameText.setPosition(player.x, player.y - 25);
+
+				// Update other players' text positions
+				otherPlayers.forEach(({ sprite, text }) => {
+					text.setPosition(sprite.x, sprite.y - 25);
+				});
+
+				// Emit player movement to server
+				socketRef.current.emit('player-move', { socketId: socketIdRef.current, x: player.x, y: player.y });
+			} catch (e) {
+				console.log(e);
 			}
-
-			// Update "You" text position
-			usernameText.setPosition(player.x, player.y - 25);
-
-			// Update other players' text positions
-			otherPlayers.forEach(({ sprite, text }) => {
-				text.setPosition(sprite.x, sprite.y - 25);
-			});
-
-			// Emit player movement to server
-			socketRef.current.emit('player-move', { socketId: socketIdRef.current, x: player.x, y: player.y });
 		}
 
 		// Resize game on window resize
@@ -214,23 +320,37 @@ const Metaverse = () => {
 
 		// Cleanup on component unmount
 		return () => {
-			if (socketRef.current) {
-				console.log("Disconnecting and removing token...");
-				// Remove token if it matches 'tester'
-				if (localStorage.getItem("token") === "tester") {
-					localStorage.removeItem("token");
-					console.log("Token removed");
+			try {
+				if (socketRef.current) {
+					console.log("Disconnecting and removing token...");
+					// Remove token if it matches 'tester'
+					if (localStorage.getItem("token") === "tester") {
+						localStorage.removeItem("token");
+						console.log("Token removed");
+					}
+					socketRef.current.disconnect();
 				}
-				socketRef.current.disconnect();
-			}
-			if (gameRef.current) {
-				gameRef.current.destroy(true);
+				if (gameRef.current) {
+					gameRef.current.destroy(true);
+				}
+			} catch (e) {
+				console.log(e);
 			}
 		};
 	}, []);
 
-	return <div style={{ position: 'fixed' }} ref={gameContainerRef} />;
+	function joinCall() {
+		getPermissions();
+		socketRef.current.emit('join-call', 1);
+	}
+
+	// return <div style={{ position: 'fixed' }} ref={gameContainerRef} />;
+	return <div>
+		<video ref={localVideoref} autoPlay playsInline></video>
+		<video ref={remoteVideoref} autoPlay playsInline></video>
+		<button onClick={joinCall}>JOIN</button>
+	</div>
 };
 
-export {phaserPlayers, otherPlayers};
+export { phaserPlayers, otherPlayers };
 export default withAuth(Metaverse);
