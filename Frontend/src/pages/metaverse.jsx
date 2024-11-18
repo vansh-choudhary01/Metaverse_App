@@ -23,7 +23,7 @@ const Metaverse = () => {
 
 	async function getPermissions() {
 		try {
-			const userMediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+			const userMediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
 			if (userMediaStream) {
 				window.localStream = userMediaStream;
 				if (localVideoref.current) {
@@ -99,7 +99,7 @@ const Metaverse = () => {
 
 			socketRef.current.on('signal', gotMessageFromServer)
 
-			socketRef.current.on('user-joined', async (id, AllSockets) => {
+			socketRef.current.on('user-joined', async (id) => {
 				peerConnection.current = new RTCPeerConnection(config);
 
 				peerConnection.current.onicecandidate = function (event) {
@@ -136,28 +136,6 @@ const Metaverse = () => {
 						console.error("Error creating and setting offer:", error);
 					}					
 				}
-
-				// console.log("AllSockets : ", AllSockets);
-				// if (id === socketIdRef.current) {
-				// 	for(let id2 in AllSockets) {
-				// 		id2 = AllSockets[id2];
-				// 		if(id2 === socketIdRef.current) continue;
-				// 		console.log("send to : ", id2);
-
-				// 		try {
-				// 			if (peerConnection.current.signalingState === 'stable') {
-				// 				const description = await peerConnection.current.createOffer();
-				// 				await peerConnection.current.setLocalDescription(description);
-				// 				socketRef.current.emit('signal', id2, JSON.stringify({ 'sdp': peerConnection.current.localDescription }));
-				// 				console.log("Offer created and set successfully.");
-				// 			} else {
-				// 				console.warn("Skipping offer creation. Current signaling state:", peerConnection.current.signalingState);
-				// 			}
-				// 		} catch (error) {
-				// 			console.error("Error creating and setting offer:", error);
-				// 		}	
-				// 	}		
-				// }
 			})
 
 
