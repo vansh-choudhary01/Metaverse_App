@@ -23,7 +23,7 @@ const Metaverse = () => {
 
 	async function getPermissions() {
 		try {
-			const userMediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+			const userMediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
 			if (userMediaStream) {
 				window.localStream = userMediaStream;
 				if (localVideoref.current) {
@@ -39,7 +39,6 @@ const Metaverse = () => {
 		const signal = JSON.parse(message);
 
 		if (fromId !== socketIdRef.current) {
-			// createPeerConnection();
 			if (signal.sdp) {
 				try {
 					peerConnection.current.setRemoteDescription(new RTCSessionDescription(signal.sdp)).then(async () => {
@@ -49,8 +48,9 @@ const Metaverse = () => {
 							await peerConnection.current.setLocalDescription(answer);
 							socketRef.current.emit('signal', fromId, JSON.stringify({ 'sdp': peerConnection.current.localDescription }));
 						} else {
-							if(!remoteAccess && remoteVideoref.current.srcObject === null) {
+							if (!remoteAccess && remoteVideoref.current.srcObject === null) {
 								remoteAccess = true;
+								socketRef.current.emit('join-call', 1);
 								socketRef.current.emit('join-call', 1);
 							}
 						}
@@ -134,7 +134,7 @@ const Metaverse = () => {
 						}
 					} catch (error) {
 						console.error("Error creating and setting offer:", error);
-					}					
+					}
 				}
 			})
 
@@ -154,7 +154,7 @@ const Metaverse = () => {
 				default: 'arcade',
 				arcade: {
 					gravity: { y: 0 }, // No vertical gravity
-					debug: false,
+					debug: true,
 				},
 			},
 			scene: {
@@ -166,7 +166,7 @@ const Metaverse = () => {
 		};
 
 		gameRef.current = new Phaser.Game(config);
-		let player, platforms, tables, cursors, usernameText;
+		let player, platforms, tables, cursors, usernameText, tableId = 0;
 
 		// Preload ..assets
 		function preload() {
@@ -201,7 +201,7 @@ const Metaverse = () => {
 			platforms.create(1000, 430, 'border').setScale(0.2, 0.18).refreshBody();
 
 			// Create initial table and calculate its width
-			const firstTable = platforms.create(544, 270, 'table').setScale(0.22, 0.1).refreshBody();
+			const firstTable = platforms.create(0, 0, 'table').setScale(0.22, 0.1).refreshBody();
 			const tableWidth = firstTable.displayWidth;
 			tables = this.physics.add.staticGroup();
 
@@ -262,7 +262,25 @@ const Metaverse = () => {
 
 			// Enable collision for player with platforms and tables
 			this.physics.add.collider(player, platforms);
-			this.physics.add.collider(player, tables);
+
+			// Enable collision for player with tables, but add a process callback
+			this.physics.add.collider(player, tables, null, (player, table) => {
+				// This ensures collision happens
+				console.log("Colliding with table!");
+
+				// Trigger overlap-like behavior here
+				handleTableCollision(player, table);
+
+				// Return true to allow the collision to proceed
+				return true;
+			}, this);
+
+			// Function to handle logic when player interacts with a table
+			function handleTableCollision(player, table) {
+				console.log("Player interacted with a table!");
+				// Add other logic here
+				console.log("tableId : ", table.id);
+			}
 
 			// Connect to Socket.IO and pass the current scene
 			connectToSocket(this);
@@ -316,7 +334,8 @@ const Metaverse = () => {
 		// Helper function to create a row of tables
 		function buildTables(x, y, distance, tableWidth, n) {
 			for (let i = 0; i < n; i++) {
-				tables.create(x + (i * (tableWidth + distance)), y, 'table').setScale(0.22, 0.1).refreshBody();
+				let table = tables.create(x + (i * (tableWidth + distance)), y, 'table').setScale(0.22, 0.1).refreshBody();
+				table.id = tableId++;
 			}
 		}
 
@@ -346,12 +365,12 @@ const Metaverse = () => {
 		socketRef.current.emit('join-call', 1);
 	}
 
-	// return <div style={{ position: 'fixed' }} ref={gameContainerRef} />;
-	return <div>
-		<video ref={localVideoref} autoPlay playsInline></video>
-		<video ref={remoteVideoref} autoPlay playsInline></video>
-		<button onClick={joinCall}>JOIN</button>
-	</div>
+	return <div style={{ position: 'fixed' }} ref={gameContainerRef} />;
+	// return <div>
+	// 	<video ref={localVideoref} autoPlay playsInline></video>
+	// 	<video ref={remoteVideoref} autoPlay playsInline></video>
+	// 	<button onClick={joinCall}>JOIN</button>
+	// </div>
 };
 
 export { phaserPlayers, otherPlayers };

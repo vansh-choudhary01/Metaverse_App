@@ -28,7 +28,7 @@ export const connectToSocket = (server) => {
             console.log("connected socket's in 1st table : " , connections[table]);
 
             for(let a = 0; a < connections[table].length; ++a) {
-                io.to(connections[table][a]).emit("user-joined", socket.id);
+                io.to(connections[table][a]).emit("user-joined", socket.id, connections[table]);
             }
         });
 
