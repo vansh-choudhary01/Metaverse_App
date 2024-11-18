@@ -22,15 +22,13 @@ export const connectToSocket = (server) => {
             if(connections[table] === undefined) {
                 connections[table] = [];
             }
-            connections[table].push(socket.id);
+            if(connections[table].indexOf(socket.id) === -1) {
+                connections[table].push(socket.id);
+            }
+            console.log("connected socket's in 1st table : " , connections[table]);
 
             for(let a = 0; a < connections[table].length; ++a) {
-                if(connections[table][a] != socket.id) {
-                    io.to(socket.id).emit("user-joined", socket.id);
-                    io.to(connections[table][a]).emit("user-joined", socket.id);
-                    // io.to(connections[table][a]).emit("user-joined", connections[table][a]);
-                    // io.to(socket.id).emit("user-joined", connections[table][a]);
-                }
+                io.to(connections[table][a]).emit("user-joined", socket.id, connections[table]);
             }
         });
 

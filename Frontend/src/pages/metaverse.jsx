@@ -19,10 +19,11 @@ const Metaverse = () => {
 	const config = {
 		iceServers: [{ urls: 'stun:stun.l.google.com:19302 ' }]
 	};
+	let remoteAccess = false;
 
 	async function getPermissions() {
 		try {
-			const userMediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+			const userMediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
 			if (userMediaStream) {
 				window.localStream = userMediaStream;
 				if (localVideoref.current) {
@@ -47,6 +48,11 @@ const Metaverse = () => {
 							const answer = await peerConnection.current.createAnswer();
 							await peerConnection.current.setLocalDescription(answer);
 							socketRef.current.emit('signal', fromId, JSON.stringify({ 'sdp': peerConnection.current.localDescription }));
+						} else {
+							if(!remoteAccess && remoteVideoref.current.srcObject === null) {
+								remoteAccess = true;
+								socketRef.current.emit('join-call', 1);
+							}
 						}
 					})
 				} catch (e) {
@@ -93,7 +99,7 @@ const Metaverse = () => {
 
 			socketRef.current.on('signal', gotMessageFromServer)
 
-			socketRef.current.on('user-joined', async (id) => {
+			socketRef.current.on('user-joined', async (id, AllSockets) => {
 				peerConnection.current = new RTCPeerConnection(config);
 
 				peerConnection.current.onicecandidate = function (event) {
@@ -108,10 +114,6 @@ const Metaverse = () => {
 					}
 				}
 
-				// peerConnection.current.addEventListener('signalingstatechange', () => {
-				// 	console.log('Signaling state changed to:', peerConnection.current.signalingState);
-				// });				
-
 				try {
 					if (window.localStream) {
 						window.localStream.getTracks().forEach((track) => {
@@ -120,7 +122,7 @@ const Metaverse = () => {
 					}
 				} catch (e) { console.error("Failed to add local stream to peer connection:", e); }
 
-				if (id !== socketIdRef) {
+				if (id !== socketIdRef.current) {
 					try {
 						if (peerConnection.current.signalingState === 'stable') {
 							const description = await peerConnection.current.createOffer();
@@ -134,6 +136,28 @@ const Metaverse = () => {
 						console.error("Error creating and setting offer:", error);
 					}					
 				}
+
+				// console.log("AllSockets : ", AllSockets);
+				// if (id === socketIdRef.current) {
+				// 	for(let id2 in AllSockets) {
+				// 		id2 = AllSockets[id2];
+				// 		if(id2 === socketIdRef.current) continue;
+				// 		console.log("send to : ", id2);
+
+				// 		try {
+				// 			if (peerConnection.current.signalingState === 'stable') {
+				// 				const description = await peerConnection.current.createOffer();
+				// 				await peerConnection.current.setLocalDescription(description);
+				// 				socketRef.current.emit('signal', id2, JSON.stringify({ 'sdp': peerConnection.current.localDescription }));
+				// 				console.log("Offer created and set successfully.");
+				// 			} else {
+				// 				console.warn("Skipping offer creation. Current signaling state:", peerConnection.current.signalingState);
+				// 			}
+				// 		} catch (error) {
+				// 			console.error("Error creating and setting offer:", error);
+				// 		}	
+				// 	}		
+				// }
 			})
 
 
