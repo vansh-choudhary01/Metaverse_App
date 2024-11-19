@@ -23,17 +23,19 @@ const Metaverse = () => {
 	};
 	let remoteAccess = false;
 	let tableAccess;
-	let callJoined = useRef(false);
 
-	async function getPermissions() {
+	// args (0 || 1) , 0 = camera video share, 1 = screen video share
+	async function getPermissions(args) {
+		console.log(args);
 		try {
-			const userMediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+			const userMediaStream = (args && args === 1) ? await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true }) : await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
 			if (userMediaStream) {
 				window.localStream = userMediaStream;
 				if (localVideoref.current) {
 					localVideoref.current.srcObject = userMediaStream;
 				}
 			}
+			socketRef.current.emit('join-call', tableAccess);
 		} catch (e) {
 			console.error("Error accessing user media:", e);
 		}
@@ -281,14 +283,14 @@ const Metaverse = () => {
 				tableAccess = table.id;
 				socketRef.current.emit('show-video', tableAccess);
 
-				if(intervalId) {
+				if (intervalId) {
 					clearInterval(intervalId);
 				}
 				intervalId = setTimeout(() => {
-					if(localVideoref.current && (localVideoref.current.srcObject === null || localVideoref.current.srcObject === undefined)) {
+					if (localVideoref.current && (localVideoref.current.srcObject === null || localVideoref.current.srcObject === undefined)) {
 						socketRef.current.emit("remove-video", joinedTable);
 					}
-				}, 3000);
+				}, 4000);
 			}
 
 			// Connect to Socket.IO and pass the current scene
@@ -370,15 +372,14 @@ const Metaverse = () => {
 	}, []);
 
 	let joinedTable;
-	function joinCall() {
+	async function joinCall() {
 		try {
 			if (localVideoref.current.srcObject !== null && localVideoref.current.srcObject !== undefined) {
 				socketRef.current.emit("remove-video", joinedTable);
 			} else if (tableAccess !== undefined) {
 				joinedTable = tableAccess;
 				console.log("Joined table no. : ", tableAccess);
-				getPermissions();
-				socketRef.current.emit('join-call', tableAccess);
+				await getPermissions();
 				return true;
 			} else {
 				return false;
@@ -389,7 +390,7 @@ const Metaverse = () => {
 	}
 
 	return <>
-		<Video data={{ joinCall, localVideoref, remoteVideoref, callJoined, socketRef }} />
+		<Video data={{ joinCall, localVideoref, remoteVideoref, socketRef, getPermissions }} />
 		<div className='game' style={{ position: 'fixed' }} ref={gameContainerRef} />
 	</>
 };

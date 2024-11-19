@@ -1,17 +1,16 @@
 import React, { useState } from "react";
 
-function Button({ joinCall }) {
+function Button({ fun, video }) {
     const [callJoin, setCallJoin] = useState(false);
 
     function handleButton() {
-        if(joinCall()) {
-            setCallJoin((prev) => !prev);
-        }
+        fun(callJoin ? 0 : 1);
+        setCallJoin((prev) => !prev);
     }
 
     return (
         <button style={{backgroundColor : callJoin ? "red" : "green"}} onClick={handleButton}>
-            {callJoin ? "END CALL" : "JOIN"}
+            {video ? (callJoin ? "SHARE CAMERA" : "SHARE SCREEN") : (callJoin ? "END CALL" : "JOIN")}
         </button>
     );
 }
