@@ -61,29 +61,29 @@ export const connectToSocket = (server) => {
             delete players[socket.id];
             console.log(`User disconnected: ${socket.id}`);
             io.emit("user-disconnected", socket.id);
-            // var key;
+            var key;
 
-            // for(const [k, v] of JSON.parse(JSON.stringify(Object.entries(connections)))) {
-            //     for(let a = 0; a < v.length; a++) {
-            //         if(v[a] === socket.id) {
-            //             key = k;
+            for(const [k, v] of JSON.parse(JSON.stringify(Object.entries(connections)))) {
+                for(let a = 0; a < v.length; a++) {
+                    if(v[a] === socket.id) {
+                        key = k;
 
-            //             // Notify all users in the room that this user has left
-            //             for(let a = 0; a < connections[key].length; a++) {
-            //                 io.to(connections[key][a]).emit('user-left', socket.id);
-            //             }
+                        // Notify all users in the room that this user has left
+                        for(let a = 0; a < connections[key].length; a++) {
+                            io.to(connections[key][a]).emit('remove-video');
+                        }
 
-            //             // Remove the user's socket ID from the room
-            //             let index = connections[key].indexOf(socket.id);
-            //             connections[key].splice(index, 1);
+                        // Remove the user's socket ID from the room
+                        let index = connections[key].indexOf(socket.id);
+                        connections[key].splice(index, 1);
 
-            //             // Delete the room if no users remain
-            //             if (connections[key].length === 0) {
-            //                 delete connections[key];
-            //             }
-            //         }
-            //     }
-            // }
+                        // Delete the room if no users remain
+                        if (connections[key].length === 0) {
+                            delete connections[key];
+                        }
+                    }
+                }
+            }
         });
     })
 
