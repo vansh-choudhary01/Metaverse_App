@@ -5,6 +5,7 @@ import io from "socket.io-client";
 import server_url from "../environment.js"
 import { createNewPlayer, playerMove, userDisconnected } from '../modules.js';
 import "../styles/metaverse.css"
+import Video from '../controllers/video.jsx';
 
 const phaserPlayers = {}; // To store Phaser player objects
 const otherPlayers = new Map(); // Track other players (sprite and text)
@@ -22,6 +23,7 @@ const Metaverse = () => {
 	};
 	let remoteAccess = false;
 	let tableAccess;
+	let callJoined = useRef(false);
 
 	async function getPermissions() {
 		try {
@@ -268,18 +270,25 @@ const Metaverse = () => {
 
 			// Enable collision for player with tables, but add a process callback
 			this.physics.add.collider(player, tables, null, (player, table) => {
-				console.log("Colliding with table!");
-
 				handleTableCollision(player, table);
 
 				return true;
 			}, this);
 
+			let intervalId;
 			// Function to handle logic when player interacts with a table
 			function handleTableCollision(player, table) {
-				console.log("Player interacted with a table!");
-				console.log("tableId : ", table.id);
 				tableAccess = table.id;
+				socketRef.current.emit('show-video', tableAccess);
+
+				if(intervalId) {
+					clearInterval(intervalId);
+				}
+				intervalId = setTimeout(() => {
+					if(localVideoref.current && (localVideoref.current.srcObject === null || localVideoref.current.srcObject === undefined)) {
+						socketRef.current.emit("remove-video", joinedTable);
+					}
+				}, 3000);
 			}
 
 			// Connect to Socket.IO and pass the current scene
@@ -360,20 +369,27 @@ const Metaverse = () => {
 		};
 	}, []);
 
+	let joinedTable;
 	function joinCall() {
-		if(tableAccess !== undefined) {
-			console.log("Joined table no. : ", tableAccess);
-			getPermissions();
-			socketRef.current.emit('join-call', tableAccess);
+		try {
+			if (localVideoref.current.srcObject !== null && localVideoref.current.srcObject !== undefined) {
+				socketRef.current.emit("remove-video", joinedTable);
+			} else if (tableAccess !== undefined) {
+				joinedTable = tableAccess;
+				console.log("Joined table no. : ", tableAccess);
+				getPermissions();
+				socketRef.current.emit('join-call', tableAccess);
+				return true;
+			} else {
+				return false;
+			}
+		} catch (e) {
+			console.log(e);
 		}
 	}
 
 	return <>
-		<div className='videos'>
-			<video ref={localVideoref} autoPlay playsInline></video>
-			<video ref={remoteVideoref} autoPlay playsInline></video>
-			<button onClick={joinCall}>JOIN</button>
-		</div>
+		<Video data={{ joinCall, localVideoref, remoteVideoref, callJoined, socketRef }} />
 		<div className='game' style={{ position: 'fixed' }} ref={gameContainerRef} />
 	</>
 };

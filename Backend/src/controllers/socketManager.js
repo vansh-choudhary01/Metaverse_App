@@ -32,6 +32,23 @@ export const connectToSocket = (server) => {
             }
         });
 
+        socket.on("show-video", (table) => {
+            if(!connections[table] || connections[table].length < 2) {
+                io.to(socket.id).emit("show-video");
+            }
+        })
+
+        socket.on("remove-video", (table) => {
+            if(connections[table]) {
+                for(let a = 0; a < connections[table].length; ++a) {
+                    io.to(connections[table][a]).emit("remove-video");
+                }
+                connections[table] = [];
+            } else {
+                io.to(socket.id).emit("remove-video");
+            }
+        })
+
         socket.on("signal", (toId, message) => {
             io.to(toId).emit("signal", socket.id, message);
         });
