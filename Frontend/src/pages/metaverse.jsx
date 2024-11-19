@@ -4,6 +4,7 @@ import withAuth from "../utils/withAuth.jsx"
 import io from "socket.io-client";
 import server_url from "../environment.js"
 import { createNewPlayer, playerMove, userDisconnected } from '../modules.js';
+import "../styles/metaverse.css"
 
 const phaserPlayers = {}; // To store Phaser player objects
 const otherPlayers = new Map(); // Track other players (sprite and text)
@@ -20,10 +21,11 @@ const Metaverse = () => {
 		iceServers: [{ urls: 'stun:stun.l.google.com:19302 ' }]
 	};
 	let remoteAccess = false;
+	let tableAccess;
 
 	async function getPermissions() {
 		try {
-			const userMediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+			const userMediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
 			if (userMediaStream) {
 				window.localStream = userMediaStream;
 				if (localVideoref.current) {
@@ -50,8 +52,9 @@ const Metaverse = () => {
 						} else {
 							if (!remoteAccess && remoteVideoref.current.srcObject === null) {
 								remoteAccess = true;
-								socketRef.current.emit('join-call', 1);
-								socketRef.current.emit('join-call', 1);
+								setTimeout(() => {
+									socketRef.current.emit('join-call', tableAccess);
+								}, 1000)
 							}
 						}
 					})
@@ -154,7 +157,7 @@ const Metaverse = () => {
 				default: 'arcade',
 				arcade: {
 					gravity: { y: 0 }, // No vertical gravity
-					debug: true,
+					debug: false,
 				},
 			},
 			scene: {
@@ -225,7 +228,7 @@ const Metaverse = () => {
 			usernameText = this.add.text(
 				player.x,
 				player.y - 25,
-				"You", // Replace with user's own name
+				"You",
 				{ font: "16px Arial", fill: "#2BDB14" }
 			).setOrigin(0.5);
 
@@ -265,21 +268,18 @@ const Metaverse = () => {
 
 			// Enable collision for player with tables, but add a process callback
 			this.physics.add.collider(player, tables, null, (player, table) => {
-				// This ensures collision happens
 				console.log("Colliding with table!");
 
-				// Trigger overlap-like behavior here
 				handleTableCollision(player, table);
 
-				// Return true to allow the collision to proceed
 				return true;
 			}, this);
 
 			// Function to handle logic when player interacts with a table
 			function handleTableCollision(player, table) {
 				console.log("Player interacted with a table!");
-				// Add other logic here
 				console.log("tableId : ", table.id);
+				tableAccess = table.id;
 			}
 
 			// Connect to Socket.IO and pass the current scene
@@ -361,16 +361,21 @@ const Metaverse = () => {
 	}, []);
 
 	function joinCall() {
-		getPermissions();
-		socketRef.current.emit('join-call', 1);
+		if(tableAccess !== undefined) {
+			console.log("Joined table no. : ", tableAccess);
+			getPermissions();
+			socketRef.current.emit('join-call', tableAccess);
+		}
 	}
 
-	return <div style={{ position: 'fixed' }} ref={gameContainerRef} />;
-	// return <div>
-	// 	<video ref={localVideoref} autoPlay playsInline></video>
-	// 	<video ref={remoteVideoref} autoPlay playsInline></video>
-	// 	<button onClick={joinCall}>JOIN</button>
-	// </div>
+	return <>
+		<div className='videos'>
+			<video ref={localVideoref} autoPlay playsInline></video>
+			<video ref={remoteVideoref} autoPlay playsInline></video>
+			<button onClick={joinCall}>JOIN</button>
+		</div>
+		<div className='game' style={{ position: 'fixed' }} ref={gameContainerRef} />
+	</>
 };
 
 export { phaserPlayers, otherPlayers };
