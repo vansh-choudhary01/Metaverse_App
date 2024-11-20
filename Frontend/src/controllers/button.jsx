@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 
-function Button({ fun, video }) {
+function Button({ fun, style }) {
     const [callJoin, setCallJoin] = useState(false);
 
     function handleButton() {
@@ -9,8 +9,8 @@ function Button({ fun, video }) {
     }
 
     return (
-        <button style={{backgroundColor : callJoin ? "red" : "green"}} onClick={handleButton}>
-            {video ? (callJoin ? "SHARE CAMERA" : "SHARE SCREEN") : (callJoin ? "END CALL" : "JOIN")}
+        <button style={{backgroundColor : callJoin ? style.color[0] : style.color[1]}} onClick={handleButton}>
+            {callJoin ? style.text[0] : style.text[1]}
         </button>
     );
 }

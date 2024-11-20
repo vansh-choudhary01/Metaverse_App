@@ -28,3 +28,56 @@
     border-radius: 10px;
     color: white;
 }
+
+.navbar {
+    position : absolute;
+    top : 0;
+    left : 16%;
+    width: 69.5%;
+    padding: 10px;
+    z-index: 2;
+    background-color: #17151F;
+    border-bottom-left-radius: 15px;
+    border-bottom-right-radius: 15px;
+    border-left: 2px solid white;
+    border-right: 2px solid white;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.navbar button {
+    position: absolute;
+    right : 5%;
+    border: none;
+    padding: 5px 25px;
+    color: white;
+    background-color: #313133;
+}
+
+.map {
+    background-color: #313133;
+    z-index: 1;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-evenly;
+}
+
+.map video {
+    border-radius: 20px;
+    border: 1px solid white;
+    height: 80%;
+    width: 40%;
+}
+
+.map button {
+    width: 30%;
+    margin: 20px;
+    border: none;
+    padding: 10px;
+    border-radius: 10px;
+    color: white;
+}

@@ -4,7 +4,6 @@ import withAuth from "../utils/withAuth.jsx"
 import io from "socket.io-client";
 import server_url from "../environment.js"
 import { createNewPlayer, playerMove, userDisconnected } from '../modules.js';
-import "../styles/metaverse.css"
 import Video from '../controllers/video.jsx';
 
 const phaserPlayers = {}; // To store Phaser player objects
@@ -287,7 +286,7 @@ const Metaverse = () => {
 					clearInterval(intervalId);
 				}
 				intervalId = setTimeout(() => {
-					if (localVideoref.current && (localVideoref.current.srcObject === null || localVideoref.current.srcObject === undefined)) {
+					if (!localVideoref.current || (localVideoref.current.srcObject === null || localVideoref.current.srcObject === undefined)) {
 						socketRef.current.emit("remove-video", joinedTable);
 					}
 				}, 4000);

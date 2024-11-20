@@ -39,7 +39,7 @@ export const connectToSocket = (server) => {
         })
 
         socket.on("remove-video", (table) => {
-            if(connections[table]) {
+            if(connections[table] && connections[table].length > 0) {
                 for(let a = 0; a < connections[table].length; ++a) {
                     io.to(connections[table][a]).emit("remove-video");
                 }
