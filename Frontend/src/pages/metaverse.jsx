@@ -280,7 +280,7 @@ const Metaverse = () => {
 			// Function to handle logic when player interacts with a table
 			function handleTableCollision(player, table) {
 				tableAccess = table.id;
-				socketRef.current.emit('show-video', tableAccess);
+				socketRef.current.emit('show-video', 'Table ' + tableAccess);
 
 				if (intervalId) {
 					clearInterval(intervalId);
@@ -345,7 +345,7 @@ const Metaverse = () => {
 		function buildTables(x, y, distance, tableWidth, n) {
 			for (let i = 0; i < n; i++) {
 				let table = tables.create(x + (i * (tableWidth + distance)), y, 'table').setScale(0.22, 0.1).refreshBody();
-				table.id = tableId++;
+				table.id = ++tableId;
 			}
 		}
 

@@ -34,7 +34,7 @@ export const connectToSocket = (server) => {
 
         socket.on("show-video", (table) => {
             if(!connections[table] || connections[table].length < 2) {
-                io.to(socket.id).emit("show-video");
+                io.to(socket.id).emit("show-video", (table));
             }
         })
 
