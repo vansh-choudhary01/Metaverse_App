@@ -18,6 +18,8 @@ const Metaverse = () => {
 	const localVideoref = useRef(null);
 	const peerConnection = useRef(null);
 	const remoteVideoref = useRef(null);
+	const localVideoref2 = useRef(null);
+	const remoteVideoref2 = useRef(null);
 	const config = {
 		iceServers: [{ urls: 'stun:stun.l.google.com:19302 ' }]
 	};
@@ -34,8 +36,13 @@ const Metaverse = () => {
 				if (localVideoref.current) {
 					localVideoref.current.srcObject = userMediaStream;
 				}
+				if(localVideoref2.current) {
+					localVideoref2.current.srcObject = userMediaStream;
+				}
 			}
-			if(tableAccess) {
+			if (args && args !== 0 && args !== 1) {
+				socketRef.current.emit('join-call', args);
+			} else {
 				socketRef.current.emit('join-call', tableAccess);
 			}
 		} catch (e) {
@@ -58,9 +65,9 @@ const Metaverse = () => {
 						} else {
 							if (!remoteAccess && remoteVideoref.current && remoteVideoref.current.srcObject === null) {
 								remoteAccess = true;
-								setTimeout(() => {
-									socketRef.current.emit('join-call', tableAccess);
-								}, 1000)
+								// setTimeout(() => {
+								// 	socketRef.current.emit('join-call', tableAccess);
+								// }, 1000)
 							}
 						}
 					})
@@ -123,6 +130,9 @@ const Metaverse = () => {
 					if (remoteVideoref.current) {
 						remoteVideoref.current.srcObject = event.streams[0];
 					}
+					if(remoteVideoref2.current) {
+						remoteVideoref2.current.srcObject = event.streams[0];
+					}
 				}
 
 				try {
@@ -168,21 +178,29 @@ const Metaverse = () => {
 			Continued movement after initial collision
 			Unintended sliding or pushing
 			Automatic direction changes*/
-			
+
 			console.log('Players have collided!');
 
-			if(callBackIntervalId) {
+			if (callBackIntervalId) {
 				clearInterval(callBackIntervalId);
-			} else {
+			} else if (!localVideoref2.current || localVideoref2.current.srcObject === null) {
 				socketRef.current.emit('video-event-on');
+				localVideoref.current = null;
+				if (socketIdRef.current < playerB.socketId) {
+					joinCall(socketIdRef.current + playerB.socketId);
+				} else {
+					joinCall(playerB.socketId + socketIdRef.current);
+				}
 			}
 
-			callBackIntervalId = setTimeout(async() => {
-				socketRef.current.emit('video-event-off');
+			callBackIntervalId = setTimeout(async () => {
+				localVideoref.current = localVideoref2.current;
+				let roomId = socketIdRef.current < playerB.socketId ? socketIdRef.current + playerB.socketId : playerB.socketId + socketIdRef.current;
+				socketRef.current.emit('video-event-off', roomId);
 				callBackIntervalId = undefined;
 			}, 100);
 		}
-	
+
 		scene.physics.add.collider(player, newPlayer, handlePlayerInteraction, null, scene);
 	}
 
@@ -316,7 +334,7 @@ const Metaverse = () => {
 			// Function to handle logic when player interacts with a table
 			function handleTableCollision(player, table) {
 				tableAccess = table.id;
-				
+
 				if (intervalId) {
 					clearInterval(intervalId);
 				} else {
@@ -409,29 +427,28 @@ const Metaverse = () => {
 	}, []);
 
 	let joinedTable;
-	async function joinCall() {
+	async function joinCall(roomId) {
 		try {
 			if (localVideoref.current && localVideoref.current.srcObject !== null && localVideoref.current.srcObject !== undefined) {
 				socketRef.current.emit("remove-video", joinedTable);
-			} else if (tableAccess !== undefined) {
+			} else {
 				joinedTable = tableAccess;
 				console.log("Joined table no. : ", tableAccess);
-				await getPermissions();
+				await getPermissions(roomId);
 				return true;
-			} else {
-				return false;
 			}
+			return false;
 		} catch (e) {
 			console.log(e);
 		}
 	}
 
 	return <>
-		<GameEventVideo data={{socketRef}}/>
+		<GameEventVideo data={{ socketRef, joinCall, localVideoref2, remoteVideoref2 }} />
 		<Video data={{ joinCall, localVideoref, remoteVideoref, socketRef, getPermissions }} />
 		<div className='game' style={{ position: 'fixed' }} ref={gameContainerRef} />
 	</>
 };
 
 export { phaserPlayers, otherPlayers };
-export default Metaverse;
+export default withAuth(Metaverse);

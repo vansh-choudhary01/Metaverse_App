@@ -2,19 +2,18 @@ import { useRef, useState } from "react";
 import "../styles/gameEventVideo.css"
 
 function GameEventVideo({ data }) {
-    let {socketRef} = data;
+    let { socketRef, localVideoref2, remoteVideoref2 } = data;
     let [show, setShow] = useState(false);
     
-    let localVideo = useRef();
-    let remoteVideo = useRef();
-
     setTimeout(() => {
         socketRef.current.on('video-event-on', () => {
             setShow(true);
         });
 
         socketRef.current.on('video-event-off', () => {
-            setShow(true);
+            setShow(false);
+            localVideoref2 = null;
+            remoteVideoref2 = null;
         });
     }, 2000);
 
@@ -22,8 +21,8 @@ function GameEventVideo({ data }) {
         <>
             {show ?
                 <div className='event-videos'>
-                    <video ref={localVideo} autoPlay playsInline></video>
-                    <video ref={remoteVideo} autoPlay playsInline></video>
+                    <video ref={localVideoref2} autoPlay playsInline></video>
+                    <video ref={remoteVideoref2} autoPlay playsInline></video>
                 </div>
                 : <></>}
         </>

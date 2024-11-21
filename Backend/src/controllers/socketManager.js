@@ -22,10 +22,15 @@ export const connectToSocket = (server) => {
             if(connections[table] === undefined) {
                 connections[table] = [];
             }
-            if(connections[table].indexOf(socket.id) === -1) {
+            if(connections[table].length < 2 && connections[table].indexOf(socket.id) === -1) {
                 connections[table].push(socket.id);
             }
-            console.log("connected socket's in 1st table : " , connections[table]);
+            console.log("table : ", table);
+            if(connections[table].indexOf(socket.id) === -1) {
+                return;
+            }
+            
+            console.log("connected socket's in table : " , connections[table]);
 
             for(let a = 0; a < connections[table].length; ++a) {
                 io.to(connections[table][a]).emit("user-joined", socket.id, connections[table]);
@@ -53,8 +58,11 @@ export const connectToSocket = (server) => {
             io.to(socket.id).emit('video-event-on');
         })
 
-        socket.on("video-event-off", () => {
+        socket.on("video-event-off", (roomId) => {
             io.to(socket.id).emit('video-event-off');
+            if(connections[roomId]) {
+                delete connections[roomId];
+            }
         })
 
         socket.on("signal", (toId, message) => {
