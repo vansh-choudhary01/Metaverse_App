@@ -5,6 +5,7 @@ import io from "socket.io-client";
 import server_url from "../environment.js"
 import { createNewPlayer, playerMove, userDisconnected } from '../modules.js';
 import Video from '../controllers/video.jsx';
+import GameEventVideo from '../controllers/gameEventVideo.jsx';
 
 const phaserPlayers = {}; // To store Phaser player objects
 const otherPlayers = new Map(); // Track other players (sprite and text)
@@ -22,10 +23,10 @@ const Metaverse = () => {
 	};
 	let remoteAccess = false;
 	let tableAccess;
+	let player;
 
 	// args (0 || 1) , 0 = camera video share, 1 = screen video share
 	async function getPermissions(args) {
-		console.log(args);
 		try {
 			const userMediaStream = (args && args === 1) ? await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true }) : await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
 			if (userMediaStream) {
@@ -34,7 +35,9 @@ const Metaverse = () => {
 					localVideoref.current.srcObject = userMediaStream;
 				}
 			}
-			socketRef.current.emit('join-call', tableAccess);
+			if(tableAccess) {
+				socketRef.current.emit('join-call', tableAccess);
+			}
 		} catch (e) {
 			console.error("Error accessing user media:", e);
 		}
@@ -53,7 +56,7 @@ const Metaverse = () => {
 							await peerConnection.current.setLocalDescription(answer);
 							socketRef.current.emit('signal', fromId, JSON.stringify({ 'sdp': peerConnection.current.localDescription }));
 						} else {
-							if (!remoteAccess && remoteVideoref.current.srcObject === null) {
+							if (!remoteAccess && remoteVideoref.current && remoteVideoref.current.srcObject === null) {
 								remoteAccess = true;
 								setTimeout(() => {
 									socketRef.current.emit('join-call', tableAccess);
@@ -94,7 +97,9 @@ const Metaverse = () => {
 					for (const socketId in AllSockets) {
 						let user = AllSockets[socketId];
 						if (user.socketId !== socketIdRef.current && !phaserPlayers[user.socketId]) {
-							createNewPlayer(scene, user);
+							let newPlayer = createNewPlayer(scene, user);
+							newPlayer.socketId = user.socketId;
+							setupPlayerInteractions(scene, player, newPlayer);
 						}
 					}
 				} catch (e) { console.log(e); };
@@ -150,6 +155,37 @@ const Metaverse = () => {
 		});
 	};
 
+	let callBackIntervalId;
+	function setupPlayerInteractions(scene, player, newPlayer) {
+		let time = 0;
+		async function handlePlayerInteraction(playerA, playerB) {
+			// stop default movement
+			playerB.setVelocity(0);
+			playerB.anims.stop();
+
+			/*(Automatic movement) When two physics bodies collide in Phaser, they naturally exert forces on each other. This can cause:
+			
+			Continued movement after initial collision
+			Unintended sliding or pushing
+			Automatic direction changes*/
+			
+			console.log('Players have collided!');
+
+			if(callBackIntervalId) {
+				clearInterval(callBackIntervalId);
+			} else {
+				socketRef.current.emit('video-event-on');
+			}
+
+			callBackIntervalId = setTimeout(async() => {
+				socketRef.current.emit('video-event-off');
+				callBackIntervalId = undefined;
+			}, 100);
+		}
+	
+		scene.physics.add.collider(player, newPlayer, handlePlayerInteraction, null, scene);
+	}
+
 	useEffect(() => {
 		// Phaser game configuration
 		const config = {
@@ -172,7 +208,7 @@ const Metaverse = () => {
 		};
 
 		gameRef.current = new Phaser.Game(config);
-		let player, platforms, tables, cursors, usernameText, tableId = 0;
+		let platforms, tables, cursors, usernameText, tableId = 0;
 
 		// Preload ..assets
 		function preload() {
@@ -280,15 +316,17 @@ const Metaverse = () => {
 			// Function to handle logic when player interacts with a table
 			function handleTableCollision(player, table) {
 				tableAccess = table.id;
-				socketRef.current.emit('show-video', 'Table ' + tableAccess);
-
+				
 				if (intervalId) {
 					clearInterval(intervalId);
+				} else {
+					socketRef.current.emit('show-video', tableAccess);
 				}
 				intervalId = setTimeout(() => {
 					if (!localVideoref.current || (localVideoref.current.srcObject === null || localVideoref.current.srcObject === undefined)) {
 						socketRef.current.emit("remove-video", joinedTable);
 					}
+					intervalId = undefined;
 				}, 4000);
 			}
 
@@ -345,7 +383,7 @@ const Metaverse = () => {
 		function buildTables(x, y, distance, tableWidth, n) {
 			for (let i = 0; i < n; i++) {
 				let table = tables.create(x + (i * (tableWidth + distance)), y, 'table').setScale(0.22, 0.1).refreshBody();
-				table.id = ++tableId;
+				table.id = "Table " + ++tableId;
 			}
 		}
 
@@ -373,7 +411,7 @@ const Metaverse = () => {
 	let joinedTable;
 	async function joinCall() {
 		try {
-			if (localVideoref.current.srcObject !== null && localVideoref.current.srcObject !== undefined) {
+			if (localVideoref.current && localVideoref.current.srcObject !== null && localVideoref.current.srcObject !== undefined) {
 				socketRef.current.emit("remove-video", joinedTable);
 			} else if (tableAccess !== undefined) {
 				joinedTable = tableAccess;
@@ -389,10 +427,11 @@ const Metaverse = () => {
 	}
 
 	return <>
+		<GameEventVideo data={{socketRef}}/>
 		<Video data={{ joinCall, localVideoref, remoteVideoref, socketRef, getPermissions }} />
 		<div className='game' style={{ position: 'fixed' }} ref={gameContainerRef} />
 	</>
 };
 
 export { phaserPlayers, otherPlayers };
-export default withAuth(Metaverse);
+export default Metaverse;

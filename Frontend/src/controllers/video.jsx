@@ -42,7 +42,7 @@ function Video({ data }) {
                 <>
                     {canShare ? <div className="navbar">
                         <span>{text}</span>
-                        <Button fun={changeStyle} style={{ color: ['#313133', '#313133'], text: ['Meeting view', 'Map view'] }} />
+                        <Button fun={changeStyle} style={{ color: ['#313133', '#313133'], text: ['Map view', 'Meeting view'] }} />
                     </div> : <></>}
 
                     <div className={mapView ? 'map' : 'videos'}>

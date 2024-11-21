@@ -14,6 +14,7 @@ const createNewPlayer = (scene, user) => {
     ).setOrigin(0.5);
 
     otherPlayers.set(user.socketId, { sprite: newPlayer, text: newPlayerText });
+    return newPlayer;
 };
 
 const userDisconnected = (socketIdUser) => {

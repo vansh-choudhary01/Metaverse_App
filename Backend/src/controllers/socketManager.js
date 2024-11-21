@@ -43,10 +43,18 @@ export const connectToSocket = (server) => {
                 for(let a = 0; a < connections[table].length; ++a) {
                     io.to(connections[table][a]).emit("remove-video");
                 }
-                connections[table] = [];
+                delete connections[table];
             } else {
                 io.to(socket.id).emit("remove-video");
             }
+        })
+
+        socket.on("video-event-on", () => {
+            io.to(socket.id).emit('video-event-on');
+        })
+
+        socket.on("video-event-off", () => {
+            io.to(socket.id).emit('video-event-off');
         })
 
         socket.on("signal", (toId, message) => {

@@ -1,0 +1,15 @@
+.event-videos {
+    width: 40vw;
+    height: 20vh;
+    z-index: 1;
+    position: absolute;
+    left: 45vw;
+    display: flex;
+    justify-content: space-evenly;
+}
+
+.event-videos video {
+    width: 40%;
+    border : 2px solid white;
+    border-radius: 10px;
+}
