@@ -6,11 +6,13 @@ import server_url from "../environment.js"
 import { createNewPlayer, playerMove, userDisconnected } from '../modules.js';
 import Video from '../controllers/video.jsx';
 import GameEventVideo from '../controllers/gameEventVideo.jsx';
+import { useNavigate } from 'react-router-dom';
 
 const phaserPlayers = {}; // To store Phaser player objects
 const otherPlayers = new Map(); // Track other players (sprite and text)
 
 const Metaverse = () => {
+	const router = useNavigate();
 	const gameContainerRef = useRef(null);
 	const socketRef = useRef(null);
 	const socketIdRef = useRef(null);
@@ -35,45 +37,46 @@ const Metaverse = () => {
 				if (localVideoref.current) {
 					localVideoref.current.srcObject = userMediaStream;
 				}
-				if(localVideoref2.current) {
+				if (localVideoref2.current) {
 					localVideoref2.current.srcObject = userMediaStream;
 				}
 			}
 			if (args && args !== 0 && args !== 1) {
 				socketRef.current.emit('join-call', args);
-			} else {
+			} else if(tableAccess) {
 				socketRef.current.emit('join-call', tableAccess);
 			}
 		} catch (e) {
 			console.error("Error accessing user media:", e);
+			if(e == "NotAllowedError: Permission denied") {
+				router('/');
+			}
 		}
 	}
+
+	getPermissions();
 
 	async function gotMessageFromServer(fromId, message) {
 		const signal = JSON.parse(message);
 
 		if (fromId !== socketIdRef.current) {
 			if (signal.sdp) {
-				try {
-					peerConnection.current.setRemoteDescription(new RTCSessionDescription(signal.sdp)).then(async () => {
-						if (signal.sdp.type === 'offer') {
-							console.log('offer receved from : ', fromId);
-							const answer = await peerConnection.current.createAnswer();
-							await peerConnection.current.setLocalDescription(answer);
-							socketRef.current.emit('signal', fromId, JSON.stringify({ 'sdp': peerConnection.current.localDescription }));
-						}
-					})
-				} catch (e) {
+				peerConnection.current.setRemoteDescription(new RTCSessionDescription(signal.sdp)).then(async () => {
+					if (signal.sdp.type === 'offer') {
+						console.log('offer receved from : ', fromId);
+						const answer = await peerConnection.current.createAnswer();
+						await peerConnection.current.setLocalDescription(answer);
+						socketRef.current.emit('signal', fromId, JSON.stringify({ 'sdp': peerConnection.current.localDescription }));
+					}
+				}).catch((e) => {
 					console.error("Error handling SDP:", e);
-				}
+				});
 			}
 
 			if (signal.ice) {
-				try {
-					await peerConnection.current.addIceCandidate(new RTCIceCandidate(signal.ice));
-				} catch (e) {
+				peerConnection.current.addIceCandidate(new RTCIceCandidate(signal.ice)).catch((e) => {
 					console.error("Error adding ICE candidate:", e);
-				}
+				})
 			}
 		}
 	}
@@ -122,7 +125,7 @@ const Metaverse = () => {
 					if (remoteVideoref.current) {
 						remoteVideoref.current.srcObject = event.streams[0];
 					}
-					if(remoteVideoref2.current) {
+					if (remoteVideoref2.current) {
 						remoteVideoref2.current.srcObject = event.streams[0];
 					}
 				}
@@ -136,17 +139,18 @@ const Metaverse = () => {
 				} catch (e) { console.error("Failed to add local stream to peer connection:", e); }
 
 				if (id !== socketIdRef.current) {
-					try {
-						if (peerConnection.current.signalingState === 'stable') {
-							const description = await peerConnection.current.createOffer();
-							await peerConnection.current.setLocalDescription(description);
-							socketRef.current.emit('signal', id, JSON.stringify({ 'sdp': peerConnection.current.localDescription }));
-							console.log("Offer created and set successfully.");
-						} else {
-							console.warn("Skipping offer creation. Current signaling state:", peerConnection.current.signalingState);
-						}
-					} catch (error) {
-						console.error("Error creating and setting offer:", error);
+					if (peerConnection.current.signalingState === 'stable') {
+						peerConnection.current.createOffer()
+							.then(async (description) => {
+								await peerConnection.current.setLocalDescription(description);
+								socketRef.current.emit('signal', id, JSON.stringify({ 'sdp': peerConnection.current.localDescription }));
+								console.log("Offer created and set successfully.");
+							})
+							.catch((error) => {
+								console.error("Error creating and setting offer:", error);
+							});
+					} else {
+						console.warn("Skipping offer creation. Current signaling state:", peerConnection.current.signalingState);
 					}
 				}
 			})
@@ -160,7 +164,6 @@ const Metaverse = () => {
 	let callBackIntervalId;
 	let roomId;
 	function setupPlayerInteractions(scene, player, newPlayer) {
-		let time = 0;
 		async function handlePlayerInteraction(playerA, playerB) {
 			// stop default movement
 			playerB.setVelocity(0);
@@ -176,7 +179,7 @@ const Metaverse = () => {
 
 			if (callBackIntervalId) {
 				clearInterval(callBackIntervalId);
-			} else if(!localVideoref.current || !localVideoref.current.srcObject) {
+			} else if (!localVideoref.current || !localVideoref.current.srcObject) {
 				socketRef.current.emit('video-event-on');
 				roomId = socketIdRef.current < playerB.socketId ? socketIdRef.current + playerB.socketId : playerB.socketId + socketIdRef.current;
 				joinCall(roomId);
@@ -192,8 +195,6 @@ const Metaverse = () => {
 		}
 
 		scene.physics.add.collider(player, newPlayer, handlePlayerInteraction, null, scene);
-
-		return handlePlayerInteraction
 	}
 
 	useEffect(() => {
