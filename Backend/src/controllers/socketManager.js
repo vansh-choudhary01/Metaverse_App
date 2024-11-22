@@ -59,8 +59,10 @@ export const connectToSocket = (server) => {
         })
 
         socket.on("video-event-off", (roomId) => {
-            io.to(socket.id).emit('video-event-off');
             if(connections[roomId]) {
+                for(let a = 0; a < connections[roomId].length; ++a) {
+                    io.to(connections[roomId][a]).emit('video-event-off');
+                }
                 delete connections[roomId];
             }
         })

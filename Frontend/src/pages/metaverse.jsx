@@ -23,7 +23,6 @@ const Metaverse = () => {
 	const config = {
 		iceServers: [{ urls: 'stun:stun.l.google.com:19302 ' }]
 	};
-	let remoteAccess = false;
 	let tableAccess;
 	let player;
 
@@ -62,13 +61,6 @@ const Metaverse = () => {
 							const answer = await peerConnection.current.createAnswer();
 							await peerConnection.current.setLocalDescription(answer);
 							socketRef.current.emit('signal', fromId, JSON.stringify({ 'sdp': peerConnection.current.localDescription }));
-						} else {
-							if (!remoteAccess && remoteVideoref.current && remoteVideoref.current.srcObject === null) {
-								remoteAccess = true;
-								// setTimeout(() => {
-								// 	socketRef.current.emit('join-call', tableAccess);
-								// }, 1000)
-							}
 						}
 					})
 				} catch (e) {
@@ -166,6 +158,7 @@ const Metaverse = () => {
 	};
 
 	let callBackIntervalId;
+	let roomId;
 	function setupPlayerInteractions(scene, player, newPlayer) {
 		let time = 0;
 		async function handlePlayerInteraction(playerA, playerB) {
@@ -183,25 +176,24 @@ const Metaverse = () => {
 
 			if (callBackIntervalId) {
 				clearInterval(callBackIntervalId);
-			} else if (!localVideoref2.current || localVideoref2.current.srcObject === null) {
+			} else if(!localVideoref.current || !localVideoref.current.srcObject) {
 				socketRef.current.emit('video-event-on');
-				localVideoref.current = null;
-				if (socketIdRef.current < playerB.socketId) {
-					joinCall(socketIdRef.current + playerB.socketId);
-				} else {
-					joinCall(playerB.socketId + socketIdRef.current);
-				}
+				roomId = socketIdRef.current < playerB.socketId ? socketIdRef.current + playerB.socketId : playerB.socketId + socketIdRef.current;
+				joinCall(roomId);
+				localVideoref.current = undefined;
+				remoteVideoref.current = undefined;
 			}
 
 			callBackIntervalId = setTimeout(async () => {
-				localVideoref.current = localVideoref2.current;
-				let roomId = socketIdRef.current < playerB.socketId ? socketIdRef.current + playerB.socketId : playerB.socketId + socketIdRef.current;
 				socketRef.current.emit('video-event-off', roomId);
 				callBackIntervalId = undefined;
+				roomId = undefined;
 			}, 100);
 		}
 
 		scene.physics.add.collider(player, newPlayer, handlePlayerInteraction, null, scene);
+
+		return handlePlayerInteraction
 	}
 
 	useEffect(() => {
@@ -427,14 +419,17 @@ const Metaverse = () => {
 	}, []);
 
 	let joinedTable;
-	async function joinCall(roomId) {
+	async function joinCall(room) {
 		try {
-			if (localVideoref.current && localVideoref.current.srcObject !== null && localVideoref.current.srcObject !== undefined) {
+			if (localVideoref.current && localVideoref.current != null && localVideoref.current.srcObject !== null && localVideoref.current.srcObject !== undefined) {
 				socketRef.current.emit("remove-video", joinedTable);
 			} else {
+				if(roomId) {
+					socketRef.current.emit('video-event-off', (roomId));
+				}
 				joinedTable = tableAccess;
 				console.log("Joined table no. : ", tableAccess);
-				await getPermissions(roomId);
+				await getPermissions(room);
 				return true;
 			}
 			return false;
