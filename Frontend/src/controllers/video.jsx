@@ -1,6 +1,7 @@
 import { useState } from "react";
 import Button from "./button";
 import "../styles/metaverse.css"
+import { useNavigate } from "react-router-dom";
 
 function Video({ data }) {
     let { localVideoref, remoteVideoref, joinCall, socketRef, getPermissions } = data;
@@ -9,22 +10,27 @@ function Video({ data }) {
     let [mapView, setMapView] = useState(false);
     let [text, setText] = useState('')
     let [room, setRoom] = useState('');
+    const router = useNavigate();
 
     setTimeout(() => {
-        socketRef.current.on('show-video', (room) => {
-            setShow(true);
-            setRoom(room);
-        });
-        
-        socketRef.current.on('remove-video', () => {
-            setShow(false);
-            setCanShare(false);
-            setMapView(false);
-            setText('');
-            localVideoref = null;
-            remoteVideoref = null;
-        })
-    }, 2000);
+        try {
+            socketRef.current.on('show-video', (room) => {
+                setShow(true);
+                setRoom(room);
+            });
+            
+            socketRef.current.on('remove-video', () => {
+                setShow(false);
+                setCanShare(false);
+                setMapView(false);
+                setText('');
+                localVideoref = null;
+                remoteVideoref = null;
+            })
+        } catch {
+            router('/game');
+        }
+    }, 100);
     
     function handleButton() {
         setCanShare(true);

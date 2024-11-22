@@ -1,21 +1,27 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import "../styles/gameEventVideo.css"
+import { useNavigate } from "react-router-dom";
 
 function GameEventVideo({ data }) {
     let { socketRef, localVideoref2, remoteVideoref2 } = data;
     let [show, setShow] = useState(false);
-    
-    setTimeout(() => {
-        socketRef.current.on('video-event-on', () => {
-            setShow(true);
-        });
+    const router = useNavigate();
 
-        socketRef.current.on('video-event-off', () => {
-            setShow(false);
-            localVideoref2 = null;
-            remoteVideoref2 = null;
-        });
-    }, 2000);
+    setTimeout(() => {
+        try {
+            socketRef.current.on('video-event-on', () => {
+                setShow(true);
+            });
+
+            socketRef.current.on('video-event-off', () => {
+                setShow(false);
+                localVideoref2 = null;
+                remoteVideoref2 = null;
+            });
+        } catch {
+            router('/game');
+        }
+    }, 100);
 
     return (
         <>

@@ -385,9 +385,13 @@ const Metaverse = () => {
 			}
 		}
 
+		
 		// Resize game on window resize
 		window.addEventListener('resize', () => {
-			gameRef.current.scale.resize(window.innerWidth, window.innerHeight);
+			if (gameRef.current && gameRef.current.scale) {
+				gameRef.current.scale.setSnap(window.innerWidth, window.innerHeight); 
+				gameRef.current.scale.resize(window.innerWidth, window.innerHeight); 
+			}
 		});
 
 		// Helper function to create a row of tables
