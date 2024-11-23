@@ -25,13 +25,20 @@ const Metaverse = () => {
 	const config = {
 		iceServers: [{ urls: 'stun:stun.l.google.com:19302 ' }]
 	};
-	let tableAccess;
+	const videoConfig = {
+		maxBitrate: 800000, // 800 Kbps
+		frameRate: 24,
+		resolution: { width: 640, height: 480 }
+	};
+	let tableAccess = useRef(null);
 	let player;
+
+	
 
 	// args (0 || 1) , 0 = camera video share, 1 = screen video share
 	async function getPermissions(args) {
 		try {
-			const userMediaStream = (args && args === 1) ? await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true }) : await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+			const userMediaStream = (args && args === 1) ? await navigator.mediaDevices.getDisplayMedia({ video: videoConfig, audio: true }) : await navigator.mediaDevices.getUserMedia({ video: videoConfig, audio: true });
 			if (userMediaStream) {
 				window.localStream = userMediaStream;
 				if (localVideoref.current) {
@@ -43,13 +50,15 @@ const Metaverse = () => {
 			}
 			if (args && args !== 0 && args !== 1) {
 				socketRef.current.emit('join-call', args);
-			} else if(tableAccess) {
-				socketRef.current.emit('join-call', tableAccess);
+			} else if(tableAccess.current) {
+				socketRef.current.emit('join-call', tableAccess.current);
 			}
 		} catch (e) {
 			console.error("Error accessing user media:", e);
 			if(e == "NotAllowedError: Permission denied") {
-				router('/');
+				if(!localVideoref.current) {
+					router('/');
+				}
 			}
 		}
 	}
@@ -83,7 +92,7 @@ const Metaverse = () => {
 
 	const connectToSocket = (scene) => {
 		try {
-			socketRef.current = io.connect(server_url, { secure: false, query: { name: localStorage.getItem("name") } });
+			socketRef.current = io.connect(server_url, { secure: true, query: { name: localStorage.getItem("name") } });
 		} catch (e) {
 			console.log(e);
 		}
@@ -162,12 +171,13 @@ const Metaverse = () => {
 	};
 
 	let callBackIntervalId;
-	let roomId;
+	let roomId = useRef();
 	function setupPlayerInteractions(scene, player, newPlayer) {
 		async function handlePlayerInteraction(playerA, playerB) {
 			// stop default movement
 			playerB.setVelocity(0);
 			playerB.anims.stop();
+			socketRef.current.emit('player-move', { socketId: socketIdRef.current, x: player.x, y: player.y });
 
 			/*(Automatic movement) When two physics bodies collide in Phaser, they naturally exert forces on each other. This can cause:
 			
@@ -181,16 +191,16 @@ const Metaverse = () => {
 				clearInterval(callBackIntervalId);
 			} else if (!localVideoref.current || !localVideoref.current.srcObject) {
 				socketRef.current.emit('video-event-on');
-				roomId = socketIdRef.current < playerB.socketId ? socketIdRef.current + playerB.socketId : playerB.socketId + socketIdRef.current;
-				joinCall(roomId);
+				roomId.current = socketIdRef.current < playerB.socketId ? socketIdRef.current + playerB.socketId : playerB.socketId + socketIdRef.current;
+				joinCall(roomId.current);
 				localVideoref.current = undefined;
 				remoteVideoref.current = undefined;
 			}
 
 			callBackIntervalId = setTimeout(async () => {
-				socketRef.current.emit('video-event-off', roomId);
+				socketRef.current.emit('video-event-off', roomId.current);
 				callBackIntervalId = undefined;
-				roomId = undefined;
+				roomId.current = undefined;
 			}, 100);
 		}
 
@@ -326,12 +336,12 @@ const Metaverse = () => {
 			let intervalId;
 			// Function to handle logic when player interacts with a table
 			function handleTableCollision(player, table) {
-				tableAccess = table.id;
+				tableAccess.current = table.id;
 
 				if (intervalId) {
 					clearInterval(intervalId);
 				} else {
-					socketRef.current.emit('show-video', tableAccess);
+					socketRef.current.emit('show-video', tableAccess.current);
 				}
 				intervalId = setTimeout(() => {
 					if (!localVideoref.current || (localVideoref.current.srcObject === null || localVideoref.current.srcObject === undefined)) {
@@ -348,26 +358,36 @@ const Metaverse = () => {
 			socketRef.current.emit('player-move', { socketId: socketIdRef.current, x: player.x, y: player.y });
 		}
 
+		let valueUpdate = true;
 		// Update function for handling game logic per frame
 		function update() {
 			try {
 				// Check which arrow key is pressed and move player accordingly
 				if (cursors.left.isDown) {
+					valueUpdate = true;
 					player.setVelocityX(-160);
 					player.anims.play('left', true);
 				} else if (cursors.right.isDown) {
+					valueUpdate = true;
 					player.setVelocityX(160);
 					player.anims.play('right', true);
 				} else if (cursors.up.isDown) {
+					valueUpdate = true;
 					player.setVelocityY(-160);
 					player.anims.play('up', true);
 				} else if (cursors.down.isDown) {
+					valueUpdate = true;
 					player.setVelocityY(160);
 					player.anims.play('down', true);
 				} else {
 					// Stop player movement if no key is pressed
 					player.setVelocity(0);
 					player.anims.stop();
+					if(valueUpdate) {
+						socketRef.current.emit('player-move', { socketId: socketIdRef.current, x: player.x, y: player.y });
+						socketRef.current.emit('player-move', { socketId: socketIdRef.current, x: player.x, y: player.y });
+					}
+					valueUpdate = false;
 				}
 
 				// Update "You" text position
@@ -378,19 +398,22 @@ const Metaverse = () => {
 					text.setPosition(sprite.x, sprite.y - 25);
 				});
 
-				// Emit player movement to server
-				socketRef.current.emit('player-move', { socketId: socketIdRef.current, x: player.x, y: player.y });
+				if (valueUpdate) {
+					// Emit player movement to server
+					socketRef.current.emit('player-move', { socketId: socketIdRef.current, x: player.x, y: player.y });
+				}
+
 			} catch (e) {
 				console.log(e);
 			}
 		}
 
-		
+
 		// Resize game on window resize
 		window.addEventListener('resize', () => {
 			if (gameRef.current && gameRef.current.scale) {
-				gameRef.current.scale.setSnap(window.innerWidth, window.innerHeight); 
-				gameRef.current.scale.resize(window.innerWidth, window.innerHeight); 
+				gameRef.current.scale.setSnap(window.innerWidth, window.innerHeight);
+				gameRef.current.scale.resize(window.innerWidth, window.innerHeight);
 			}
 		});
 
@@ -429,11 +452,11 @@ const Metaverse = () => {
 			if (localVideoref.current && localVideoref.current != null && localVideoref.current.srcObject !== null && localVideoref.current.srcObject !== undefined) {
 				socketRef.current.emit("remove-video", joinedTable);
 			} else {
-				if(roomId) {
-					socketRef.current.emit('video-event-off', (roomId));
+				if(roomId.current) {
+					socketRef.current.emit('video-event-off', (roomId.current));
 				}
-				joinedTable = tableAccess;
-				console.log("Joined table no. : ", tableAccess);
+				joinedTable = tableAccess.current;
+				console.log("Joined table no. : ", tableAccess.current);
 				await getPermissions(room);
 				return true;
 			}

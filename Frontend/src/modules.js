@@ -2,7 +2,7 @@ import { phaserPlayers, otherPlayers } from "./pages/metaverse";
 
 const createNewPlayer = (scene, user) => {
     // Add a new player sprite to the game
-    const newPlayer = scene.physics.add.sprite(500, 300, 'dude').setScale(0.1);
+    const newPlayer = scene.physics.add.sprite(500, 0, 'dude').setScale(0.1);
     newPlayer.setCollideWorldBounds(true);
     phaserPlayers[user.socketId] = newPlayer;
 
