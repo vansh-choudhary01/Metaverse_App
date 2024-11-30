@@ -188,11 +188,12 @@ const Metaverse = () => {
 			console.log('Players have collided!');
 
 			if (callBackIntervalId) {
-				clearInterval(callBackIntervalId);
+				clearTimeout(callBackIntervalId);
 			} else if (!localVideoref.current || !localVideoref.current.srcObject) {
 				socketRef.current.emit('video-event-on');
-				roomId.current = socketIdRef.current < playerB.socketId ? socketIdRef.current + playerB.socketId : playerB.socketId + socketIdRef.current;
-				joinCall(roomId.current);
+				let room = socketIdRef.current < playerB.socketId ? socketIdRef.current + playerB.socketId : playerB.socketId + socketIdRef.current;
+				await joinCall(room);
+				roomId.current = room;
 				localVideoref.current = undefined;
 				remoteVideoref.current = undefined;
 			}
@@ -201,7 +202,7 @@ const Metaverse = () => {
 				socketRef.current.emit('video-event-off', roomId.current);
 				callBackIntervalId = undefined;
 				roomId.current = undefined;
-			}, 100);
+			}, 2000);
 		}
 
 		scene.physics.add.collider(player, newPlayer, handlePlayerInteraction, null, scene);
