@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Phaser from 'phaser';
 import withAuth from "../utils/withAuth.jsx"
 import io from "socket.io-client";
@@ -33,7 +33,7 @@ const Metaverse = () => {
 	let tableAccess = useRef(null);
 	let player;
 
-	
+
 
 	// args (0 || 1) , 0 = camera video share, 1 = screen video share
 	async function getPermissions(args) {
@@ -172,6 +172,7 @@ const Metaverse = () => {
 
 	let callBackIntervalId;
 	let roomId = useRef();
+	let [callStatus, setCallStatus] = useState(false);
 	function setupPlayerInteractions(scene, player, newPlayer) {
 		async function handlePlayerInteraction(playerA, playerB) {
 			// stop default movement
@@ -190,16 +191,26 @@ const Metaverse = () => {
 			if (callBackIntervalId) {
 				clearTimeout(callBackIntervalId);
 			} else if (!localVideoref.current || !localVideoref.current.srcObject) {
-				socketRef.current.emit('video-event-on');
-				let room = socketIdRef.current < playerB.socketId ? socketIdRef.current + playerB.socketId : playerB.socketId + socketIdRef.current;
-				await joinCall(room);
-				roomId.current = room;
-				localVideoref.current = undefined;
-				remoteVideoref.current = undefined;
+				setCallStatus((prev) => {
+					if (!prev) {
+						socketRef.current.emit('video-event-on');
+						
+						console.log("Room id changed");
+						setTimeout(() => {
+							let room = socketIdRef.current < playerB.socketId ? socketIdRef.current + playerB.socketId : playerB.socketId + socketIdRef.current;
+							localVideoref.current = undefined;
+							remoteVideoref.current = undefined;
+							getPermissions(room);
+							roomId.current = room;
+						}, 1000);
+					}
+					return true;
+				});
 			}
 
 			callBackIntervalId = setTimeout(async () => {
 				socketRef.current.emit('video-event-off', roomId.current);
+				setCallStatus(false);
 				callBackIntervalId = undefined;
 				roomId.current = undefined;
 			}, 2000);
@@ -455,6 +466,7 @@ const Metaverse = () => {
 			} else {
 				if(roomId.current) {
 					socketRef.current.emit('video-event-off', (roomId.current));
+					setCallStatus(false);
 				}
 				joinedTable = tableAccess.current;
 				console.log("Joined table no. : ", tableAccess.current);
@@ -468,7 +480,7 @@ const Metaverse = () => {
 	}
 
 	return <>
-		<GameEventVideo data={{ socketRef, joinCall, localVideoref2, remoteVideoref2 }} />
+		<GameEventVideo data={{ socketRef, localVideoref2, remoteVideoref2 }} />
 		<Video data={{ joinCall, localVideoref, remoteVideoref, socketRef, getPermissions }} />
 		<div className='game' style={{ position: 'fixed' }} ref={gameContainerRef} />
 	</>
