@@ -200,7 +200,7 @@ const Metaverse = () => {
 							let room = socketIdRef.current < playerB.socketId ? socketIdRef.current + playerB.socketId : playerB.socketId + socketIdRef.current;
 							localVideoref.current = undefined;
 							remoteVideoref.current = undefined;
-							getPermissions(room);
+							joinCall(room);
 							roomId.current = room;
 						}, 1000);
 					}
@@ -460,11 +460,13 @@ const Metaverse = () => {
 
 	let joinedTable;
 	async function joinCall(room) {
+		console.log(roomId.current);
+		console.log(localVideoref.current);
 		try {
 			if (localVideoref.current && localVideoref.current != null && localVideoref.current.srcObject !== null && localVideoref.current.srcObject !== undefined) {
 				socketRef.current.emit("remove-video", joinedTable);
 			} else {
-				if(roomId.current) {
+				if(!room && roomId.current) {
 					socketRef.current.emit('video-event-off', (roomId.current));
 					setCallStatus(false);
 				}
